@@ -96,7 +96,7 @@ def take_question(teams, questions):
     
     if team_index == None:
         return
-    elif team_index == -1 or team_index > len(questions) - 1:
+    elif team_index == -1 or team_index > len(teams) - 1:
         return
 
     # choose question
@@ -143,7 +143,7 @@ def answer_question(teams, questions):
     
     if team_index == None:
         return
-    elif team_index == -1 or team_index > len(questions) - 1:
+    elif team_index == -1 or team_index > len(teams) - 1:
         return
 
     # choose question

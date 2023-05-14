@@ -128,6 +128,9 @@ def answer_question(teams, questions):
         time_taken = int(time.time() - teams[team_index].start_times[question_index])
         print(f"Time taken: {time_taken} seconds")
         
+        # prior attemps
+        print(f"Prior attempts: {teams[team_index].incorrect_attempts}")
+        
         # calculate the score
         gained_points = scoring(teams[team_index].incorrect_attempts, questions[question_index].base_score, time_taken)
         teams[team_index].score += gained_points
@@ -149,8 +152,15 @@ def main():
 
     while True:
         clear_screen()
-        print("1. Take a question")
-        print("2. Answer a question")
+        # TODO: fix this shitty code with a proper leaderboard
+        print("Leaderboard:")
+        print("-------------------------")
+        print("Team\t\tScore")
+        print("-------------------------")
+        print("\n".join([f"{team.name}\t\t{team.score}" for team in sorted(teams, key=lambda team: team.score, reverse=True)]))
+        print("\n-------------------------\n")
+        print("1. Register question taken")
+        print("2. Mark answer")
         print("3. Exit")
         choice = int(input())
 

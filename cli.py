@@ -11,10 +11,15 @@ class Team:
     def __init__(self, name):
         self.name = name
         self.members = []
-        self.score = 0
+        self.scores = {}
         self.questions_taken = set()
+        self.questions_completed = set()
         self.incorrect_attempts = {}
         self.start_times = {}
+        self.end_times = {}
+        
+    def total_score(self):
+        return sum(self.scores.values())
 
     def add_member(self, member):
         self.members.append(member)
@@ -74,7 +79,12 @@ def configure_questions(file_path):
 
 # for when a team takes a question
 def take_question(teams, questions):
-    clear_screen()
+    # if all questions have been taken, return
+    if len([team for team in teams if len(team.questions_taken) < len(questions)]) == 0:
+        return
+    
+    # choose team
+    update_display(teams, questions) 
     print("Select team or 0 to go back:")
     for i, team in enumerate(teams):
         print(f"{i + 1}. {team}")
@@ -89,7 +99,8 @@ def take_question(teams, questions):
     elif team_index == -1 or team_index > len(questions) - 1:
         return
 
-    clear_screen()
+    # choose question
+    update_display(teams, questions)
     print("Select question:")
     for i, question in enumerate(questions):
         if i not in teams[team_index].questions_taken:
@@ -109,15 +120,18 @@ def take_question(teams, questions):
     teams[team_index].questions_taken.add(question_index)
     teams[team_index].start_times[question_index] = time.time()
     
-    # init the incorrect attempts to 0
+    # init score, incorrect attempts, and end time to 0
+    teams[team_index].scores[question_index] = 0
     teams[team_index].incorrect_attempts[question_index] = 0
+    teams[team_index].end_times[question_index] = 0
 
 def answer_question(teams, questions):
     # if no teams have questions out, return
     if len([team for team in teams if len(team.questions_taken) > 0]) == 0:
         return
     
-    clear_screen()
+    # choose team
+    update_display(teams, questions)
     print("Select team or 0 to go back:")
     for i, team in enumerate(teams):
         print(f"{i + 1}. {team}")
@@ -132,13 +146,8 @@ def answer_question(teams, questions):
     elif team_index == -1 or team_index > len(questions) - 1:
         return
 
-    clear_screen()
-    # if the team has no questions taken, return
-    if len(teams[team_index].questions_taken) == 0:
-        print("This team has no questions taken")
-        return
-    
-    # otherwise, show the list of questions currently taken
+    # choose question
+    update_display(teams, questions)
     print("Select question:")
     for i, question in enumerate(questions):
         if i in teams[team_index].questions_taken:
@@ -154,7 +163,8 @@ def answer_question(teams, questions):
     elif question_index == -1 or question_index > len(questions) - 1:
         return
 
-    clear_screen()
+    # mark answer
+    update_display(teams, questions)
     print(f"Markscheme: {questions[question_index].answer}")
     print("Is the answer correct? (y/n)")
     correct = input().lower() == 'y'
@@ -168,11 +178,13 @@ def answer_question(teams, questions):
         
         # calculate the score
         gained_points = scoring(teams[team_index].incorrect_attempts[question_index], questions[question_index].base_score, time_taken)
-        teams[team_index].score += gained_points
+        teams[team_index].scores[question_index] += gained_points
         print(f"Points gained: {gained_points}")
         
-        # remove the question from the list of questions taken
+        # mark question complete
         teams[team_index].questions_taken.remove(question_index)
+        teams[team_index].questions_completed.add(question_index)
+        teams[team_index].end_times[question_index] = time.time()
     else:
         # add an incorrect attempt
         teams[team_index].incorrect_attempts[question_index] += 1
@@ -185,33 +197,11 @@ def main():
     teams = configure_teams(team_file_path)
     questions = configure_questions(question_file_path)
     
-    update_display(teams, questions)
-
-def update_display(teams, questions):
     while True:
-        clear_screen()
-        # TODO: fix this shitty code with a proper leaderboard
-        # Print the leaderboard
-        print(f"\033[31mLeaderboard:\033[0m")
-        print(f"-------------------------")
-        print(f"Team\t\tScore")
-        print(f"-------------------------")
-        for team in sorted(teams, key=lambda team: team.score, reverse=True):
-            print(f"{team.name}\t\t{team.score}")
-        print(f"-------------------------\n")
-
-        # Print the questions currently out
-        print(f"\033[36mQuestions Currently Out:\033[0m")
-        print(f"-------------------------")
-        for count, team in enumerate(teams):
-            print(f"{team.name}:")
-            for question_index in team.questions_taken:
-                question = questions[question_index]
-                print(f"{question.question} ({team.incorrect_attempts[question_index]} attempts, {int(time.time() - team.start_times[question_index])} seconds taken so far)")
-            print(f"-------------------------")
-
+        update_display(teams, questions)
+        
         # Print the options
-        print("\n1. Register question taken")
+        print("1. Register question taken")
         print("2. Mark answer")
         print("\nAny key to refresh")
         
@@ -222,6 +212,41 @@ def update_display(teams, questions):
             take_question(teams, questions)
         elif int(choice) == 2:
             answer_question(teams, questions)
+
+# updates leaderboard
+def update_display(teams, questions):
+    clear_screen()
+    
+    # TODO: fix this shitty code with a proper leaderboard
+    # Print the leaderboard
+    print(f"\033[31mLeaderboard:\033[0m")
+    print(f"-------------------------")
+    print(f"Team\t\tScore")
+    print(f"-------------------------")
+    for team in sorted(teams, key=lambda team: team.total_score(), reverse=True):
+        print(f"{team.name}\t\t{team.total_score()}")
+    print(f"-------------------------\n")
+
+    # Print the questions currently out
+    print(f"\033[36mQuestions Currently Out:\033[0m")
+    print(f"-------------------------")
+    for count, team in enumerate(teams):
+        print(f"{team.name}:")
+        for question_index in team.questions_taken:
+            question = questions[question_index]
+            print(f"{question.question} ({team.incorrect_attempts[question_index]} attempts, {int(time.time() - team.start_times[question_index])} seconds taken so far)")
+        print(f"-------------------------\n")
+        
+    # Print the questions completed:
+    print(f"\033[32mQuestions Completed:\033[0m")
+    print(f"-------------------------")
+    for count, team in enumerate(teams):
+        print(f"{team.name}:")
+        for question_index in team.questions_completed:
+            question = questions[question_index]
+            print(f"{question.question} ({team.scores[question_index]} points, {team.incorrect_attempts[question_index]+1} attempts, {round(team.end_times[question_index] - team.start_times[question_index])} seconds taken)")
+        print(f"-------------------------\n")
+    
 
 if __name__ == "__main__":
     main()

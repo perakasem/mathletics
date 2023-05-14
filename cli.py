@@ -92,6 +92,7 @@ def take_question(teams, questions):
             print(f"{i + 1}. {question.question}")
     question_index = int(input()) - 1
 
+    # keep track of start time and add the question to that team's list
     teams[team_index].questions_taken.add(question_index)
     teams[team_index].start_times[question_index] = time.time()
 

@@ -2,12 +2,12 @@ SAQ 1,143,30
 SAQ 2,1/2,20
 SAQ 3,sqrt(2),30
 SAQ 4,\[\frac{1}{2}\det\begin{pmatrix} x_2-x_1&x_3-x_1 \\ y_2-y_1&y_3-y_1\end{pmatrix}.\],30
-SAQ 5,,10
-SAQ 6,,20
+SAQ 5,"(2,3), (6,5)",10
+SAQ 6,730,20
 SAQ 7,1.4,20
 SAQ 8,1002,25
 SAQ 9,39,30
-SAQ 10,,20
+SAQ 10,148,20
 SAQ 11,384,20
 SAQ 12,6,30
 SAQ 13,42,30

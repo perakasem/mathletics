@@ -173,8 +173,8 @@ def answer_question(teams, questions):
         time_taken = int(time.time() - teams[team_index].start_times[question_index])
         print(f"Time taken: {time_taken} seconds")
         
-        # prior attemps
-        print(f"Prior attempts: {teams[team_index].incorrect_attempts[question_index]}")
+        # display attempts
+        print(f"Total attempts: {teams[team_index].incorrect_attempts[question_index]}")
         
         # calculate the score
         gained_points = scoring(teams[team_index].incorrect_attempts[question_index], questions[question_index].base_score, time_taken)

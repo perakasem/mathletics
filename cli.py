@@ -192,8 +192,8 @@ def answer_question(teams, questions):
     input("Press enter to return")
     
 def main():
-    team_file_path = "mathletics/teams.csv"
-    question_file_path = "mathletics/questions.csv"
+    team_file_path = "teams.csv"
+    question_file_path = "questions.csv"
     teams = configure_teams(team_file_path)
     questions = configure_questions(question_file_path)
     

@@ -236,7 +236,7 @@ def update_display(teams, questions):
         print(f"{team.name}:")
         for question_index in team.questions_taken:
             question = questions[question_index]
-            print(f"{question.question} ({team.incorrect_attempts[question_index]} attempts, {int(time.time() - team.start_times[question_index])} seconds taken so far)")
+            print(f"{question.question} (attempt {team.incorrect_attempts[question_index]}, {int(time.time() - team.start_times[question_index])} seconds taken so far)")
         print(f"-------------------------\n")
         
     # Print the questions completed:
@@ -246,7 +246,7 @@ def update_display(teams, questions):
         print(f"{team.name}:")
         for question_index in team.questions_completed:
             question = questions[question_index]
-            print(f"{question.question} ({team.scores[question_index]} points, {team.incorrect_attempts[question_index]} attempts, {round(team.end_times[question_index] - team.start_times[question_index])} seconds taken)")
+            print(f"{question.question} ({team.scores[question_index]} point(s), {team.incorrect_attempts[question_index]} attempt(s), {round(team.end_times[question_index] - team.start_times[question_index])} seconds taken)")
         print(f"-------------------------\n")
     
 

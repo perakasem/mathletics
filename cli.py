@@ -122,7 +122,7 @@ def take_question(teams, questions):
     
     # init score, incorrect attempts, and end time to 0
     teams[team_index].scores[question_index] = 0
-    teams[team_index].incorrect_attempts[question_index] = 0
+    teams[team_index].incorrect_attempts[question_index] = 1
     teams[team_index].end_times[question_index] = 0
 
 def answer_question(teams, questions):
@@ -192,8 +192,8 @@ def answer_question(teams, questions):
     input("Press enter to return")
     
 def main():
-    team_file_path = "teams.csv"
-    question_file_path = "questions.csv"
+    team_file_path = "mathletics/teams.csv"
+    question_file_path = "mathletics/questions.csv"
     teams = configure_teams(team_file_path)
     questions = configure_questions(question_file_path)
     
@@ -203,15 +203,17 @@ def main():
         # Print the options
         print("1. Register question taken")
         print("2. Mark answer")
-        print("\nAny key to refresh")
+        print("\nEnter to refresh")
         
         choice = input()
         if choice == "":
             update_display(teams, questions)
-        elif int(choice) == 1:
+        elif choice == "1":
             take_question(teams, questions)
-        elif int(choice) == 2:
+        elif choice == "2":
             answer_question(teams, questions)
+        else:
+            update_display(teams, questions)
 
 # updates leaderboard
 def update_display(teams, questions):
@@ -221,10 +223,10 @@ def update_display(teams, questions):
     # Print the leaderboard
     print(f"\033[31mLeaderboard:\033[0m")
     print(f"-------------------------")
-    print(f"Team\t\tScore")
+    print(f"Score\tTeam")
     print(f"-------------------------")
     for team in sorted(teams, key=lambda team: team.total_score(), reverse=True):
-        print(f"{team.name}\t\t{team.total_score()}")
+        print(f"{team.total_score():03d}\t{team.name}")
     print(f"-------------------------\n")
 
     # Print the questions currently out
@@ -244,7 +246,7 @@ def update_display(teams, questions):
         print(f"{team.name}:")
         for question_index in team.questions_completed:
             question = questions[question_index]
-            print(f"{question.question} ({team.scores[question_index]} points, {team.incorrect_attempts[question_index]+1} attempts, {round(team.end_times[question_index] - team.start_times[question_index])} seconds taken)")
+            print(f"{question.question} ({team.scores[question_index]} points, {team.incorrect_attempts[question_index]} attempts, {round(team.end_times[question_index] - team.start_times[question_index])} seconds taken)")
         print(f"-------------------------\n")
     
 

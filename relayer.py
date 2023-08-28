@@ -7,7 +7,6 @@ load_dotenv()  # Load variables from .env file
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
-
 intents = discord.Intents(messages=True, message_content=True)
 
 bot = commands.Bot(command_prefix="!", intents=intents)

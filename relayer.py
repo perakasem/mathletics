@@ -7,11 +7,11 @@ load_dotenv()  # Load variables from .env file
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
-intents = discord.Intents(messages=True, message_content=True)
+intents = discord.Intents(messages=True, message_content=True, reactions=True)
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-RELAY_CHANNEL_ID = 1234567890  # ID of the channel where you want to relay the message to
+RELAY_CHANNEL_ID = 1138806960129581066 # ID of the channel where you want to relay the message to
 CHECK_MARK_EMOJI = '✅'
 enabled_channels = set()  # Set of channels where the relay feature is enabled
 

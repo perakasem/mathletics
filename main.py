@@ -15,7 +15,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
-    print(f'loggded in as {bot.user}')
+    print(f'logged in as {bot.user}')
 
 bot.add_cog(Competition(bot))
 

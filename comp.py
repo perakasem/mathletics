@@ -1,7 +1,12 @@
-import discord, csv, asyncio, sqlite3
+import os
+import csv
+import asyncio
+import sqlite3
+import discord
 from db_init import create_db
 from os.path import join, dirname, abspath
 from discord.ext import commands
+from graph import graph
 
 class Comp:
     def __init__(self, name, mod_c, res_c, path) -> None:
@@ -9,6 +14,7 @@ class Comp:
         self.mod_channel = mod_c
         self.res_channel = res_c
         self.db_path = path
+        self.plots_path = str(join(dirname(dirname(abspath(__file__))), 'mathletics/plots/current_plot.png'))
         self.competitor = []
     # status = active -> allow questions and teams)
 
@@ -121,7 +127,24 @@ class Competition(commands.Cog):
         return
     
     @commands.command()
-    async def relay(self, ctx):
-        return
-    
-    
+    async def results(self, ctx):
+        try:
+            self.comp
+        except Exception as e:
+            return
+        
+        if self.comp is None:
+            return
+        
+        # clear channel
+        await self.comp.res_channel.purge(limit=5)
+
+        graph(self.comp.db_path, self.comp.plots_path)
+        leaderboard = discord.File(self.comp.plots_path, filename='leaderboard.png')
+        
+        embed = discord.Embed(title='Live Leaderboard', color=0xb8eefa)
+        embed.set_image(url='attachment://leaderboard.png')
+        
+        await self.comp.res_channel.send(embed=embed, file=leaderboard)
+
+        os.remove(self.comp.plots_path)

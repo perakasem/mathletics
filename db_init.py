@@ -1,7 +1,5 @@
 import sqlite3
 from os.path import join, dirname, abspath
-import sys
-import csv
 
 def create_db(name):
     db_path = str(join(dirname(dirname(abspath(__file__))), f'mathletics/comp_dbs/{name}.db'))
@@ -44,4 +42,3 @@ def create_db(name):
     conn.close()
 
 create_db("test")
-    

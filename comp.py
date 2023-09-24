@@ -1,18 +1,7 @@
-import os, discord, csv, asyncio, sqlite3
+import discord, csv, asyncio, sqlite3
 from db_init import create_db
-from dotenv import load_dotenv
 from os.path import join, dirname, abspath
 from discord.ext import commands
-
-load_dotenv() # Load variables from .env file
-
-DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-
-intents = discord.Intents.default()
-intents.messages = True
-intents.message_content = True
-
-bot = commands.Bot(command_prefix="!", intents=intents)
 
 class Comp:
     def __init__(self, name, mod_c, res_c, path) -> None:
@@ -23,72 +12,116 @@ class Comp:
         self.competitor = []
     # status = active -> allow questions and teams)
 
-@bot.command
-async def start_comp(ctx, comp_name, mod_c: discord.TextChannel, res_c: discord.TextChannel):
-    """Start a competition with the given name. The competition will be moderated in the mod_channel and results will be posted in the res_channel."""
-    create_db(comp_name)
-    path = str(join(dirname(dirname(abspath(__file__))), f'mathletics/comp_dbs/{comp_name}.db'))
-    await ctx.send(f"Competition {comp_name} created! Moderation will be done in {mod_c.mention} and results will be posted in {res_c.mention}.")
-    await ctx.send("Please use `!set_q <csv>` to add questions and `!set_t <csv>` to add teams to the competition.")
+class Competition(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+        self.comp = None
 
-    bot.comp = Comp(comp_name, mod_c, res_c, path)
+    @commands.command()
+    async def start_comp(self, ctx, comp_name, mod_c: discord.TextChannel, res_c: discord.TextChannel):
+        """Start a competition with the given name. The competition will be moderated in the mod_channel and results will be posted in the res_channel."""
+        try:
+            create_db(comp_name)
+            path = str(join(dirname(dirname(abspath(__file__))), f'mathletics/comp_dbs/{comp_name}.db'))
+            await ctx.send(f"Competition {comp_name} created! Moderation will be done in {mod_c.mention} and results will be posted in {res_c.mention}.")
+            await ctx.send("Please use `!set_q <csv>` to add questions and `!set_t <csv>` to add teams to the competition.")
 
-#comp class with all parameters, initialize with start_comp, refer to class for operations. 
-@bot.command
-async def set_q(ctx):
-    try:
-        bot.comp
-    except:
-        return
-    
-    if bot.comp is None:
-        return
+            self.comp = Comp(comp_name, mod_c, res_c, path)
+        except Exception as e:
+            await ctx.send("Usage: `!start_comp <competition name> <moderation channel> <results channel>`")
 
-    
-    if len(ctx.message.attachments) == 1:
-        attachment = ctx.message.attachments
+    @commands.command()
+    async def set_r(self, ctx):
+        try:
+            self.comp
+        except Exception as e:
+            return
+        
+        if self.comp is None:
+            return
+        
+        if len(ctx.message.attachments) == 1:
+            attachment = ctx.message.attachments[0]
+            if attachment.filename.endswith('.csv'):
+                try:
+                    file = await attachment.read()
+                    rows = file.decode('utf-8').strip().split('\n')
+                    questions  = csv.reader(rows)
 
-        if attachment.filename.endswith('.csv'):
-            file = await attachment.read()
-            rows = file.decode('utf-8').strip().split('\n')
-            questions  = csv.reader(rows)
+                    conn = sqlite3.connect(self.comp.db_path)
+                    c = conn.cursor()
 
-            conn = sqlite3.connect(bot.comp.db_path)
-            c = conn.cursor()
+                    for question in questions:
+                        c.execute("INSERT INTO questions (id, answer, base_score) VALUES (?, ?, ?)", question)
 
-            for question in questions:
-                c.execute("INSERT INTO questions (id, answer, base_score) VALUES (?, ?, ?)", question)
-
-            conn.commit()
-            conn.close()
-
+                    conn.commit()
+                    conn.close()
+                except Exception as e:
+                    await ctx.send("please attach a correctly formatted questions file.")
+            else:
+                await ctx.send("invalid file type.")
         else:
-            await ctx.send("invalid file type.")
-    else:
-        await ctx.send("please attach a valid `.csv` file.")
+            await ctx.send("please attach a valid `.csv` file.")
 
+    @commands.command()
+    async def set_t(self, ctx):
+        try:
+            self.comp
+        except Exception as e:
+            return
+        
+        if self.comp is None:
+            return
+        
+        if len(ctx.message.attachments) == 1:
+            attachment = ctx.message.attachments[0]
+            if attachment.filename.endswith('.csv'):
+                try:
+                    file = await attachment.read()
+                    rows = file.decode('utf-8').strip().split('\n')
+                    teams  = csv.reader(rows)
 
-@bot.command
-async def end_comp(ctx):
-    await ctx.send("type 'end' to end the competition.")
+                    conn = sqlite3.connect(self.comp.db_path)
+                    c = conn.cursor()
 
-    def verify(sender):
-        return sender.author == ctx.author and sender.channel == ctx.channel
+                    for team in teams:
+                        c.execute("INSERT INTO teams (id, team_name, members, completed_qid, score) VALUES (?, ?, ?, ?, ?)", team)
 
-    try: # waiting for message
-        response = await bot.wait_for('message', sender=verify, timeout=30.0) # timeout - how long bot waits for message (in seconds)
-    except asyncio.TimeoutError: # returning after timeout
-        await ctx.send("command timed out.")
+                    conn.commit()
+                    conn.close()
+                except Exception as e:
+                    await ctx.send("please attach a correctly formatted teams file.")
+            else:
+                await ctx.send("invalid file type.")
+        else:
+            await ctx.send("please attach a valid `.csv` file.")
+
+    @commands.command()
+    async def end_comp(self, ctx):
+        await ctx.send("type 'end' to end the competition.")
+
+        def verify(sender):
+            return sender.author == ctx.author and sender.channel == ctx.channel
+
+        try: # waiting for message
+            response = await self.bot.wait_for('message', check=verify, timeout=30.0) # timeout - how long bot waits for message (in seconds)
+        except asyncio.TimeoutError: # returning after timeout
+            await ctx.send("command timed out.")
+            return
+
+        if response.content.lower() != 'end': 
+            await ctx.send("command cancelled.")
+            return
+
+        del self.comp
+        await ctx.send("competition ended.")
+
+    @commands.command()
+    async def competitor(self, mod_chanel: discord.TextChannel):
         return
-
-    if response.content.lower() != 'end': 
-        await ctx.send("command cancelled.")
+    
+    @commands.command()
+    async def relay(self, ctx):
         return
-
-    del bot.comp
-    await ctx.send("competition ended.")
-
-@bot.event
-async def competitor(mod_chanel: discord.TextChannel):
-    return
-
+    
+    

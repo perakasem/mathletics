@@ -1,4 +1,5 @@
-import os, discord
+import os
+import discord
 from dotenv import load_dotenv
 from discord.ext import commands
 from comp import Competition
@@ -17,6 +18,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 async def on_ready():
     print(f'logged in as {bot.user}')
 
-bot.add_cog(Competition(bot))
+bot.load_extension("comp")
 
-bot.run(DISCORD_TOKEN)
+if __name__ == "__main__":
+    bot.run(DISCORD_TOKEN)

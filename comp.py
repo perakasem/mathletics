@@ -33,14 +33,14 @@ class Competition(commands.Cog):
             await ctx.send("Please use `!set_q <csv>` to add questions and `!set_t <csv>` to add teams to the competition.")
 
             self.comp = Comp(comp_name, mod_c, res_c, path)
-        except Exception as e:
+        except:
             await ctx.send("Usage: `!start_comp <competition name> <moderation channel> <results channel>`")
 
     @commands.command()
     async def set_r(self, ctx):
         try:
             self.comp
-        except Exception as e:
+        except:
             return
         
         if self.comp is None:
@@ -62,7 +62,7 @@ class Competition(commands.Cog):
 
                     conn.commit()
                     conn.close()
-                except Exception as e:
+                except:
                     await ctx.send("please attach a correctly formatted questions file.")
             else:
                 await ctx.send("invalid file type.")
@@ -73,7 +73,7 @@ class Competition(commands.Cog):
     async def set_t(self, ctx):
         try:
             self.comp
-        except Exception as e:
+        except:
             return
         
         if self.comp is None:
@@ -95,7 +95,7 @@ class Competition(commands.Cog):
 
                     conn.commit()
                     conn.close()
-                except Exception as e:
+                except:
                     await ctx.send("please attach a correctly formatted teams file.")
             else:
                 await ctx.send("invalid file type.")
@@ -130,7 +130,7 @@ class Competition(commands.Cog):
     async def results(self, ctx):
         try:
             self.comp
-        except Exception as e:
+        except:
             return
         
         if self.comp is None:

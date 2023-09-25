@@ -11,11 +11,11 @@ def graph(path, save_path):
     conn.row_factory = lambda cursor, row: row[0]
     c = conn.cursor()
 
-    teams = c.execute("SELECT team_name FROM teams").fetchall
-    scores = c.execute("SELECT score FROM teams").fetchall
+    teams = c.execute("SELECT team_name FROM teams").fetchall()
+    scores = c.execute("SELECT score FROM teams").fetchall()
 
     conn.close()
-
+    
     # turn parallel lists into dict and sort by scores
     sorted_results = sorted(zip(teams, scores), key=lambda pair: pair[1])
 
@@ -41,6 +41,7 @@ def graph(path, save_path):
     ax.spines['left'].set_visible(False)
     ax.tick_params(left=False, bottom=False, labelbottom=False)
     ax.set_yticklabels(sorted_teams, fontproperties=font, color='#B8EEFA')
+    ax.set_yticks(range(len(sorted_teams)))
     ax.tick_params(axis='y', labelsize=20, direction='out', pad=(10))
     title = ax.set_title("LEADERBOARD", fontproperties=font, color='#B8EEFA', fontsize=20, loc='center')
     title.set_position([0, 1.05])

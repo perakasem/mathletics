@@ -1,16 +1,14 @@
 import discord
-from discord.ext import commands
+# from discord.ext import commands
 
-class Relayer:
-
+class ReactionRelayer:
     def __init__(self, bot):
         self.CHECK_MARK_EMOJI = '✅'
         self.bot = bot
         self.enabled_channels = set()  # Set of channels where the relay feature is enabled
         self.relay_channels = {}  # Dictionary of source channel IDs to destination channel IDs
-        
 
-    @commands.Cog.listener()
+    # @commands.Cog.listener()
     async def on_message(self, message):
         # Prevent the bot from reacting to its own messages
         if message.author == self.bot.user:
@@ -23,7 +21,7 @@ class Relayer:
         # Process commands (important if you're using the on_message event and commands)
         await self.bot.process_commands(message)
 
-    @commands.Cog.listener()
+    # @commands.Cog.listener()
     async def on_reaction_add(self, reaction, user):
         if user == self.bot.user:
             return  # Avoid processing reactions made by the bot
@@ -38,17 +36,50 @@ class Relayer:
 
                 await relay_channel.send(content)
 
-    @commands.command()
-    @commands.has_permissions(manage_channels=True)
-    async def enable_relay(self, ctx, destination_channel: discord.TextChannel):
+    # @commands.command()
+    # @commands.has_permissions(manage_channels=True)
+    async def enable_reaction_relay(self, ctx, destination_channel: discord.TextChannel):
         self.enabled_channels.add(ctx.channel.id)
-        """Enable relaying of messages from the current channel to the specified destination channel."""
+        # Enable relaying of messages from the current channel to the specified destination channel.
         source_channel_id = ctx.channel.id
         self.relay_channels[source_channel_id] = destination_channel.id
         await ctx.send(f"Relaying enabled! Messages from this channel will be relayed to {destination_channel.mention}.")
 
-    @commands.command()
+    # @commands.command()
     # @commands.has_permissions(manage_channels=True)  # Only members with the 'manage_channels' permission can use this command
-    async def disable_relay(self, ctx):
+    async def disable__reaction_relay(self, ctx):
         self.enabled_channels.discard(ctx.channel.id)
         await ctx.send(f"Relay disabled in this channel: {ctx.channel.name}")
+
+class Relayer:
+    def __init__(self, bot):
+        self.bot = bot
+        self.enabled_channels = set()  # Set of channels where the relay feature is enabled
+        self.relay_channels = {}  # Dictionary of source channel IDs to destination channel IDs
+
+    # @commands.Cog.listener()
+    async def on_message(self, message):
+        if message.author == self.bot.user:
+            return  # Avoid processing messages made by the bot
+
+        if message.channel.id in self.enabled_channels:
+            source_channel = message.channel
+            relay_channel = self.bot.get_channel(self.relay_channels.get(source_channel.id))
+            
+            if relay_channel:
+                author_name = message.author.name
+                await relay_channel.send(f"{author_name}: {message.content}")
+
+
+    async def enable_relay(self, source_channel: discord.TextChannel, destination_channel: discord.TextChannel):
+        # Enable relaying of messages from the current channel to the specified destination channel.
+        source_channel_id = source_channel.id
+        self.enabled_channels.add(source_channel_id)
+        self.relay_channels[source_channel_id] = destination_channel.id
+        await source_channel.send(f"Relaying enabled. Destination: {destination_channel.mention}.")
+
+    # @commands.command()
+    # @commands.has_permissions(manage_channels=True)  # Only members with the 'manage_channels' permission can use this command
+    async def disable_relay(self, source_channel: discord.TextChannel):
+        self.enabled_channels.discard(source_channel.id)
+        await source_channel.send("Relay disabled.")

@@ -22,7 +22,7 @@ def graph(path, save_path):
     # revert to lists
     sorted_teams, sorted_scores = zip(*sorted_results)
 
-    fig, ax = plt.subplots(figsize=(8, 6))
+    _, ax = plt.subplots(figsize=(8, 6))
 
     # plot data
     plt.barh(sorted_teams, sorted_scores, color='#89CADF')

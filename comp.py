@@ -4,7 +4,7 @@ import asyncio
 import sqlite3
 import discord
 from relayer import Relayer
-from db_init import create_db
+from mathletics.db_init import create_db
 from typing import Optional
 from os.path import join, dirname, abspath
 from datetime import datetime
@@ -15,15 +15,15 @@ from scoring import scoring
 nocomp = "No active competitions. Run `!set_comp` to instantiate a competition."
 
 class Comp:
-    def __init__(self, name, time, mod, res, path) -> None:
-        self.comp_name = datetime.now().strftime('%Y-%m-%d_') + name
+    def __init__(self, name, mod, res, path) -> None:
+        self.comp_name = name
         self.mod_channel = mod
         self.res_channel = res
         self.active = False
-        self.time = time
         self.db_path = path
         self.plots_path = str(join(dirname(dirname(abspath(__file__))), 'mathletics/plots/current_plot.png'))
         self.competitor = {} # list of competitor channels
+        self.submitting_channels = set()
 
 class Competition(commands.Cog):
     def __init__(self, bot):
@@ -32,13 +32,26 @@ class Competition(commands.Cog):
         self.comp = None
 
     @commands.command()
-    async def set_comp(self, ctx, comp_name=None, time = None, mod_c: Optional[discord.TextChannel] = None, res_c: Optional[discord.TextChannel] = None):
-        # error handling
-        if hasattr(self, 'comp') or self.comp is not None:
-            await ctx.send("Competition already instantiated. Use `!start_comp` to start the competition.")
+    @commands.has_role('Invigilator')
+    async def status(self, ctx):
+        if not hasattr(self, 'comp') or self.comp is None:
+            await ctx.send("Competition has not started.") 
             return
-        if comp_name is None or time is None or mod_c is None or res_c is None:
-            await ctx.send("Usage: `!set_comp <competition name> <duration in minutes> <#moderation-channel> <#results channel>`")
+        embed = discord.Embed(title="Status", description=f"Competition: {self.comp.comp_name}", color=0xb8eefa)  # 0x00ff00 is a green color for "correct"
+        embed.add_field(name="moderation channel", value=f"{self.comp.mod_channel}", inline=True)
+        embed.add_field(name="results channel", value=f"{self.comp.res_channel}", inline=True)
+        embed.add_field(name="active", value=f"{self.comp.active}", inline=True)
+        for pair in self.comp.competitor:
+            embed.add_field(name="competitors", value=f"{pair}", inline=True)
+        await ctx.send(embed=embed)
+        
+
+    @commands.command()
+    @commands.has_role('Invigilator')
+    async def set_comp(self, ctx, comp_name=None, mod_c: Optional[discord.TextChannel] = None, res_c: Optional[discord.TextChannel] = None):
+        # error handling
+        if comp_name is None or mod_c is None or res_c is None:
+            await ctx.send("Usage: `!set_comp <competition name> <#moderation-channel> <#results channel>`")
             return
         if not isinstance(mod_c, discord.TextChannel) or not isinstance(res_c, discord.TextChannel):
             await ctx.send("Invalid channel(s). Use Discord's typing suggestions to ensure channel validity.")
@@ -46,18 +59,23 @@ class Competition(commands.Cog):
         if mod_c == res_c:
             await ctx.send("Moderation and results channels must be different.")
             return
+        
+        comp_name = datetime.now().strftime('%Y-%m-%d_') + comp_name
 
         path = str(join(dirname(dirname(abspath(__file__))), f'mathletics/comp_dbs/{comp_name}.db'))
-        
+
         if os.path.exists(path):
             await ctx.send("Competition name taken. Please select a new one.")
-
+            return
+        
+        self.comp = Comp(comp_name, mod_c, res_c, path)
         create_db(comp_name)
+
         await ctx.send(f"Competition {comp_name} created! Moderation will be done in {mod_c.mention} and results will be posted in {res_c.mention}.")
         await ctx.send("Please use `!set_questions <csv>` to add questions and `!set_teams <csv>` to add teams to the competition.")
-        self.comp = Comp(comp_name, time, mod_c, res_c, path)
-
+    
     @commands.command()
+    @commands.has_role('Invigilator')
     async def start_comp(self, ctx):
         # check if comp is set
         if not hasattr(self, 'comp') or self.comp is None:
@@ -71,7 +89,9 @@ class Competition(commands.Cog):
 
         # enable message relay from competitor channels to moderation channel
         for channel in self.comp.competitor:
-            self.relayer.enable_relay(channel, self.comp.mod_channel)
+            await self.relayer.enable_relay(channel, self.comp.mod_channel)
+            channel_obj = self.bot.get_channel(channel)
+            await channel_obj.send("The competition has started. Use `!submit <question number>` to start a question.")
         
         # display initial leaderboard
         await self.comp.res_channel.purge(limit=5) # clear channel
@@ -89,6 +109,7 @@ class Competition(commands.Cog):
         await ctx.send("Competition started.")
     
     @commands.command()
+    @commands.has_role('Invigilator')
     async def stop_comp(self, ctx):
         # check if comp is set
         if not hasattr(self, 'comp') or self.comp is None:
@@ -98,11 +119,15 @@ class Competition(commands.Cog):
             await ctx.send("Competition has not been started.")
             return
 
-        self.comp.active = False
-
         # enable message relay from competitor channels to moderation channel
         for channel in self.comp.competitor:
-            self.relayer.disable_relay(channel)
+            await self.relayer.disable_relay(channel)
+            channel_obj = self.bot.get_channel(channel)
+
+            embed = discord.Embed(title="Question Overview", description=f"**The competition has ended. Congratulations on your results. You can view the leaderboard in {self.comp.res_channel.mention}.**", color=0xffff00)
+            await channel_obj.send(embed=embed)
+
+        self.comp.active = False
         
         # Final Leaderboard Update
         await self.comp.res_channel.purge(limit=5) # clear channel
@@ -121,18 +146,46 @@ class Competition(commands.Cog):
 
         await ctx.send("Competition Ended.")
     
-    @commands.Cog.listener()
-    async def on_message(self, message):
-        await self.relayer.on_message(message)
-    
     @commands.command()
     async def submit(self, ctx, question):
+        if not hasattr(self, 'comp') or self.comp is None:
+            await ctx.send("Competition has not started.") 
+            return
+
         if not self.comp.active:
             await ctx.send("Competition has not started.")
             return
         
+        if ctx.channel.id in self.comp.submitting_channels:
+            await ctx.send("The command is currently running in this channel! Please wait.")
+            return
+        
         while self.comp.active:
-            await ctx.send(f"Start question {question}. Enter the question number to confirm or anything character to cancel:")
+            correct = False
+            attempts = 0
+
+            tid = self.comp.competitor.get(ctx.channel.id)
+            time = 0
+
+            conn = sqlite3.connect(self.comp.db_path)
+            c = conn.cursor()            
+            base_score = c.execute("SELECT base_score FROM questions WHERE id = ?", (question)).fetchone()[0]
+            
+            question_row = c.execute("SELECT * FROM questions WHERE id = ?", (question)).fetchone()
+            if question_row:
+                question_exists = question_row[0]
+            else:
+                question_exists = None
+            if question_exists is None:
+                await ctx.send("**Chosen question does not exist!**")
+                return
+
+            embed = discord.Embed(title="Question Overview", description=f"Question: {question}", color=0xb8eefa)
+            embed.add_field(name="Maximum Achievable Score", value=f"{base_score}", inline=True)
+            await ctx.send(embed=embed)
+
+            await ctx.send(f"Enter the question number to start question {question} or any character to cancel:")
+
             def confirm(sender):
                 return sender.author == ctx.author and sender.channel == ctx.channel
 
@@ -143,23 +196,22 @@ class Competition(commands.Cog):
                 return
             
             if confirmation.content != question: 
-                await ctx.send("Command cancelled.")
+                await ctx.send("Question cancelled.")
                 return
-            
-            correct = False
-            attempts = 0
-            tid = self.comp.competitor.get(ctx.channel)
-            time = 0
 
-            conn = sqlite3.connect(self.comp.db_path)
-            c = conn.cursor()
-
-            base_score = c.execute("SELECT base_score FROM questions WHERE qid = ?", (question)).fetchone()
+            q_exists = c.execute("SELECT * FROM questions WHERE id = ?", (question)).fetchone()[0]
+            if not q_exists: 
+                await ctx.send("Question does not exist.")
+                return
 
             #enter qid, tid 
-            exists = c.execute("SELECT * FROM progress WHERE qid = ? AND tid = ?", (question, tid)).fetchone()
+            row = c.execute("SELECT * FROM progress WHERE qid = ? AND tid = ?", (question, tid)).fetchone()
+            if row:
+                exists = row[0]
+            else:
+                exists = None
             if exists: 
-                status = c.execute("SELECT attempts FROM progress WHERE qid = ? AND tid = ?", (question, tid)).fetchone()
+                status = c.execute("SELECT attempts FROM progress WHERE qid = ? AND tid = ?", (question, tid)).fetchone()[0]
                 if status == -1:
                     await ctx.send("Question forfeited. Please select a different question.")
                     return
@@ -171,16 +223,23 @@ class Competition(commands.Cog):
                 c.execute("INSERT INTO progress (qid, tid, attempts) VALUES (?, ?, 0)", (question, tid))
                 conn.commit()
                 start_time = datetime.now()
+
                 await ctx.send(f"Timer for question {question} started.")
 
             while correct is False:
 
-                await ctx.send(f"Enter your answer for question {question}:")
+                await ctx.send(f"Enter your answer for question {question} or `skip` to forfeit:")
 
                 def verify(sender):
                     return sender.channel == ctx.channel
 
                 response = await self.bot.wait_for('message', check=verify)
+
+                if response.content.startswith('!'):
+                    await ctx.send("Answer cannot begin with `!`")
+                    await ctx.send("This response will not affect your attempts.")
+                    attempts -= 1
+
                 attempts += 1
                 
                 #if message: skip then BREAK and return, question deemed INCORRECT, cannot be re-attempted (flag: attempts = -1)
@@ -190,42 +249,54 @@ class Competition(commands.Cog):
                         response = await self.bot.wait_for('message', check=verify) 
                     except asyncio.TimeoutError: # time out
                         await ctx.send("Command timed out.")
+                        attempts -= 1
                     
                     if response.content == "y": 
-                        attempts = -1
+                        attempts = -1 
                         await ctx.send("Question forfeited.")
                         break
+                    else:
+                        attempts -= 1
                 
-                answer = c.execute("SELECT answer FROM questions WHERE id = ?", (question)).fetchone() # get answer of question
+                answer = c.execute("SELECT answer FROM questions WHERE id = ?", (question)).fetchone()[0] # get answer of question
                 if response.content == answer:
                     correct = True
                     time = (datetime.now() - start_time).seconds
 
-                    await self.comp.mod_channel.send(f"**Team {tid}:**")
-                    await self.comp.mod_channel.send(f"**question**: {question}")
-                    await self.comp.mod_channel.send("**result**: correct.")
-                    await self.comp.mod_channel.send(f"**attempts**: {attempts}")
-                    
-                    await ctx.send(f"**question**: {question}")
-                    await ctx.send("**result**: correct.")
-                    await ctx.send(f"**attempts**: {attempts}")
+                    embed = discord.Embed(title="Submission Results", description=f"Question: {question}", color=0x00ff00)  # 0x00ff00 is a green color for "correct"
+                    embed.add_field(name="Result", value="Correct", inline=True)
+                    embed.add_field(name="Attempts", value=f"{attempts}", inline=True)
+                    embed.add_field(name="Time", value=f"{time}", inline=True)
+                    await ctx.send(embed=embed)
+
+                    mod_embed = discord.Embed(title=f"Team {tid}", description=f"Question {question} Submission Results", color=0x00ff00)  # Green for "correct"
+                    mod_embed.add_field(name="Result", value="Correct", inline=True)
+                    mod_embed.add_field(name="Attempts", value=f"{attempts}", inline=True)
+                    mod_embed.add_field(name="Time", value=f"{time}", inline=True)
+                    await self.comp.mod_channel.send(embed=mod_embed)
 
                 else:
-                    await self.comp.mod_channel.send(f"**Team {tid}:**")
-                    await self.comp.mod_channel.send(f"**question**: {question}")
-                    await self.comp.mod_channel.send("**result**: incorrect.")
-                    await self.comp.mod_channel.send(f"**attempts**: {attempts}")
+                    time = (datetime.now() - start_time).seconds
 
-                    await ctx.send(f"**question**: {question}")
-                    await ctx.send("**result**: incorrect.")
-                    await ctx.send(f"**attempts**: {attempts}")
+                    embed = discord.Embed(title="Submission Results", description=f"Question: {question}", color=0xff0000)  # 0xff0000 is red for "incorrect"
+                    embed.add_field(name="Result", value="Incorrect", inline=True)
+                    embed.add_field(name="Attempts", value=str(attempts), inline=True)
+                    embed.add_field(name="Elapsed Time", value=f"{time} seconds", inline=True)
+                    await ctx.send(embed=embed)
+
+                    mod_embed = discord.Embed(title=f"Team {tid}", description=f"Question {question} Submission Results", color=0xff0000)  # 0xff0000 is red, representing "incorrect"
+                    mod_embed.add_field(name="Result", value="Incorrect", inline=False)
+                    mod_embed.add_field(name="Attempts", value=str(attempts), inline=True)
+                    mod_embed.add_field(name="Elapsed Time", value=f"{time} seconds", inline=True)
+                    await self.comp.mod_channel.send(embed=mod_embed)
 
             if attempts < 0:
                 # send zero summary
                 await self.comp.mod_channel.send(f"**Team {tid} forefeited question {question}**")
-                await ctx.send("Question forfeited. You will not be able to re-attempt this question. ")
-                await ctx.send(f"**question:** {question}")
-                await ctx.send("**score:** 0")
+
+                embed = discord.Embed(title="Question Forfeited", description=f"Question: {question}", color=0xff6600)  # 0xff6600 is an orange-ish color for "forfeit"
+                embed.add_field(name="Score", value="0", inline=True)
+                await ctx.send(embed=embed)
 
                 # send to moderator channels
                 c.execute("UPDATE progress SET attempts = ?, time = ? WHERE qid = ? AND tid = ?", (attempts, time, question, tid))
@@ -235,26 +306,30 @@ class Competition(commands.Cog):
                 return
             
             score = scoring(attempts, base_score, time)
-            completed_q, team_score = c.execute("SELECT completed_qid, score FROM teams WHERE id = ?", (tid)).fetchone()
+            completed_q, team_score = c.execute("SELECT completed_qid, score FROM teams WHERE id = ?", (tid,)).fetchone()
             new_score = team_score + score
             new_completed_q = completed_q + f"{question}, "
-            c.execute("UPDATE teams SET completed_qid = ?, score = ?", (new_completed_q, new_score))
+            c.execute("UPDATE teams SET completed_qid = ?, score = ? WHERE id = ?", (new_completed_q, new_score, tid))
             c.execute("UPDATE progress SET attempts = ?, time = ? WHERE qid = ? AND tid = ?", (attempts, time, question, tid))
             conn.commit()
 
             # send summary message
-            await self.comp.mod_channel.send(f"**Team {tid}:**")
-            await self.comp.mod_channel.send("**result:** correct.")
-            await self.comp.mod_channel.send(f"**question:** {question}")
-            await self.comp.mod_channel.send(f"**attemps:** {attempts}")
-            await self.comp.mod_channel.send(f"**score:** {score}")
-            await self.comp.mod_channel.send(f"**total score:** {new_score}")
+            embed = discord.Embed(title="Result", description=f"Question {question} Summary", color=0xb8eefa)
+            embed.add_field(name="Result", value="Correct", inline=False)
+            embed.add_field(name="Question", value=str(question), inline=True)
+            embed.add_field(name="Attempts", value=str(attempts), inline=True)
+            embed.add_field(name="Score", value=str(score), inline=True)
+            embed.add_field(name="Total Score", value=str(new_score), inline=True)
+            await ctx.send(embed=embed)
 
-            await ctx.send("**result:** correct.")
-            await ctx.send(f"**question:** {question}")
-            await ctx.send(f"**attemps:** {attempts}")
-            await ctx.send(f"**score:** {score}")
-            await ctx.send(f"**total score:** {new_score}")
+            # send to mod channel
+            mod_embed = discord.Embed(title=f"Team {tid}", description=f"Question {question} Summary", color=0xb8eefa)
+            mod_embed.add_field(name="Result", value="Correct", inline=False)
+            mod_embed.add_field(name="Question", value=str(question), inline=True)
+            mod_embed.add_field(name="Attempts", value=str(attempts), inline=True)
+            mod_embed.add_field(name="Score", value=str(score), inline=True)
+            mod_embed.add_field(name="Total Score", value=str(new_score), inline=True)
+            await self.comp.mod_channel.send(embed=mod_embed)
 
             # Update leaderboard
             await self.comp.res_channel.purge(limit=5) # clear channel
@@ -277,6 +352,7 @@ class Competition(commands.Cog):
         await ctx.send("Competition has Ended.")
 
     @commands.command()
+    @commands.has_role('Invigilator')
     async def update_mod_channel(self, ctx, mod_c: discord.TextChannel):
         if not hasattr(self, 'comp') or self.comp is None:
             await ctx.send(nocomp)
@@ -286,6 +362,7 @@ class Competition(commands.Cog):
         await ctx.send(f"moderation channel updated to {mod_c.mention}.")
 
     @commands.command()
+    @commands.has_role('Invigilator')
     async def update_res_channel(self, ctx, res_c: discord.TextChannel):
         if not hasattr(self, 'comp') or self.comp is None:
             await ctx.send(nocomp)
@@ -295,6 +372,7 @@ class Competition(commands.Cog):
         await ctx.send(f"moderation channel updated to {res_c.mention}.")
 
     @commands.command()
+    @commands.has_role('Invigilator')
     async def set_questions(self, ctx):
         if not hasattr(self, 'comp') or self.comp is None:
             await ctx.send(nocomp)
@@ -319,8 +397,8 @@ class Competition(commands.Cog):
                     conn.commit()
                     conn.close()
 
-                    await ctx.send("Qeustions set.")
-                except sqlite3.OperationalError as e:
+                    await ctx.send("Questions set.")
+                except sqlite3.ProgrammingError as e:
                     await ctx.send("Please attach a correctly formatted questions file.")
                     print(e)
             else:
@@ -329,6 +407,7 @@ class Competition(commands.Cog):
             await ctx.send("Please attach a valid `.csv` file.")
 
     @commands.command()
+    @commands.has_role('Invigilator')
     async def set_teams(self, ctx):
         if not hasattr(self, 'comp') or self.comp is None:
             await ctx.send(nocomp) 
@@ -354,7 +433,7 @@ class Competition(commands.Cog):
                     conn.close()
 
                     await ctx.send("Teams set.")
-                except sqlite3.OperationalError as e:
+                except sqlite3.ProgrammingError as e:
                     await ctx.send("Please attach a correctly formatted teams file.")
                     print(e)
             else:
@@ -363,12 +442,16 @@ class Competition(commands.Cog):
             await ctx.send("Please attach a valid `.csv` file.")
 
     @commands.command()
+    @commands.has_role('Invigilator')
     async def end_comp(self, ctx):
         if not hasattr(self, 'comp') or self.comp is None:
             await ctx.send(nocomp)  # Send a response if you want to notify user
             return
+        if self.comp.active:
+            await ctx.send("Competition is still active. Use `!stop_comp` to stop competition.")
+            return
         
-        await ctx.send("Type 'end' to end the competition.")
+        await ctx.send("Type 'end' to terminate and archive the current competition.")
 
         def verify(sender):
             return sender.author == ctx.author and sender.channel == ctx.channel
@@ -387,16 +470,18 @@ class Competition(commands.Cog):
         await ctx.send("Competition ended.")
 
     @commands.command()
+    @commands.has_role('Invigilator')
     async def competitor(self, ctx, tid):
         if not hasattr(self, 'comp') or self.comp is None:
             await ctx.send(nocomp) 
             return
-
-        self.comp.competitor.update({ctx.channel:tid})
+        
+        self.comp.competitor[ctx.channel.id] = int(tid)
         await ctx.send("Competitor channel added")
         return
     
     @commands.command()
+    @commands.has_role('Invigilator')
     async def remove_competitor(self, ctx):
         if not hasattr(self, 'comp') or self.comp is None:
             await ctx.send(nocomp)
@@ -409,6 +494,15 @@ class Competition(commands.Cog):
         del(self.comp.competitor[ctx.channel])
         await ctx.send("Channel removed from competitors")
         return
+    
+    @commands.Cog.listener()
+    async def on_message(self, message):
+        await self.relayer.on_message(message)
 
+    @commands.Cog.listener()
+    async def on_command_error(self, ctx, error):
+        if isinstance(error, commands.MissingRole):
+            await ctx.send('You do not have permission to use this command.')
+    
 async def setup(bot):
     await bot.add_cog(Competition(bot))

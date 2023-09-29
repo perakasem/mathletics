@@ -71,15 +71,16 @@ class Relayer:
                 await relay_channel.send(f"{author_name}: {message.content}")
 
 
-    async def enable_relay(self, source_channel: discord.TextChannel, destination_channel: discord.TextChannel):
+    async def enable_relay(self, source_channel_id: int, destination_channel: discord.TextChannel):
         # Enable relaying of messages from the current channel to the specified destination channel.
-        source_channel_id = source_channel.id
+        source_channel = self.bot.get_channel(source_channel_id)
         self.enabled_channels.add(source_channel_id)
         self.relay_channels[source_channel_id] = destination_channel.id
         await source_channel.send(f"Relaying enabled. Destination: {destination_channel.mention}.")
 
     # @commands.command()
     # @commands.has_permissions(manage_channels=True)  # Only members with the 'manage_channels' permission can use this command
-    async def disable_relay(self, source_channel: discord.TextChannel):
-        self.enabled_channels.discard(source_channel.id)
+    async def disable_relay(self, source_channel_id: int):
+        source_channel = self.bot.get_channel(source_channel_id)
+        self.enabled_channels.discard(source_channel_id)
         await source_channel.send("Relay disabled.")

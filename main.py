@@ -16,7 +16,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 @bot.event
 async def on_ready():
     print(f'logged in as {bot.user}')
-    await bot.load_extension("comp")
+    await bot.load_extension("cogs.comp")
     print("competition module loaded")
 
 if __name__ == "__main__":

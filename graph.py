@@ -30,7 +30,7 @@ def graph(path, save_path):
     for index, value in enumerate(sorted_scores):
         plt.text(value + (0.05 * max(sorted_scores)), 
                 index, str(value), 
-                color='#38546C', 
+                color='#B8EEFA', 
                 verticalalignment='center', 
                 fontsize=20,
                 fontproperties=font)

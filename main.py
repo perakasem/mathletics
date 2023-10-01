@@ -16,8 +16,12 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 @bot.event
 async def on_ready():
     print(f'logged in as {bot.user}')
-    await bot.load_extension("cogs.comp")
+    await bot.load_extension("comp")
     print("competition module loaded")
+
+@bot.command
+async def hello(ctx):
+    await ctx.send("Hello! I am Mathletics Steward. Use `!help` to access commands, or contact the administrator to learn more.")
 
 if __name__ == "__main__":
     bot.run(DISCORD_TOKEN)

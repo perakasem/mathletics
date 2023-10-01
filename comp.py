@@ -4,7 +4,7 @@ import asyncio
 import sqlite3
 import discord
 from relayer import Relayer
-from mathletics.db_init import create_db
+from db_init import create_db
 from typing import Optional
 from os.path import join, dirname, abspath
 from datetime import datetime
@@ -32,6 +32,10 @@ class Competition(commands.Cog):
         self.comp = None
 
     @commands.command()
+    async def hello(self, ctx):
+        await ctx.send("Hello! I am Mathletics Steward. Use `!help` to access commands, or contact the administrator to learn more.")
+
+    @commands.command()
     @commands.has_role('Invigilator')
     async def status(self, ctx):
         if not hasattr(self, 'comp') or self.comp is None:
@@ -45,7 +49,6 @@ class Competition(commands.Cog):
             embed.add_field(name="competitors", value=f"{pair}", inline=True)
         await ctx.send(embed=embed)
         
-
     @commands.command()
     @commands.has_role('Invigilator')
     async def set_comp(self, ctx, comp_name=None, mod_c: Optional[discord.TextChannel] = None, res_c: Optional[discord.TextChannel] = None):
@@ -132,6 +135,8 @@ class Competition(commands.Cog):
         # Final Leaderboard Update
         await self.comp.res_channel.purge(limit=5) # clear channel
 
+        # SEND PROGRESS TABLE in EMBED, SEND EACH TEAM'S SUMMARY IN A SEPARATE EMBED, SORT BY QUESTION NUMBER, DISPLAY QUESTION NUMBER, ATTEMPTS, TIME TAKEN, AND SCORE FOR EACH QUESTION. DISPLAY 'FORFEITED' IF ATTEMPTS IS LESS THAN ZERO. 
+
         graph(self.comp.db_path, self.comp.plots_path)
         leaderboard = discord.File(self.comp.plots_path, filename='leaderboard.png')
         
@@ -144,7 +149,7 @@ class Competition(commands.Cog):
 
         await self.comp.res_channel.send("The competition has ended. The final results for this section are shown above.")
 
-        await ctx.send("Competition Ended.")
+        await ctx.send("Competition Stopped.")
     
     @commands.command()
     async def submit(self, ctx, question):

@@ -23,7 +23,7 @@ Dependencies:
     scoring: A custom module for calculating scores.
 
 Example:
-    To use the Comp class, load this cog as an extension:
+    To use the Competition class, load this cog as an extension:
     
     ```python
     @bot.event

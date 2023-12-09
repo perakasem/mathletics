@@ -1,14 +1,13 @@
 """
 Module to handle all competition related commands for configuration, moderation, and participation.
 
-This module contains the ReactionRelayer class, which provides functionality for a Discord bot to relay messages between channels based on reaction emojis. It is designed to be used as a cog within a Discord bot using the discord.ext.commands framework. The module facilitates the toggling of message relay based on specific reactions (like a check mark) in designated channels.
-
 Classes:
     Comp: Stores ongoing competition data as an entity for competition tracking.
     Competition: Manages the entire competition.
 
 Dependencies:
-    os: Provides a way to interact with the operating system, particularly for environment variable access and path operations.
+    os: Provides a way to interact with the operating system, particularly for environment variable 
+        access and path operations.
     csv: Implements classes to read and write tabular data in CSV format.
     asyncio: Enables asynchronous programming, used for managing asynchronous tasks and coroutines.
     sqlite3: A built-in library for interacting with SQLite databases.
@@ -18,7 +17,8 @@ Dependencies:
     typing: Provides support for type hints, enhancing code readability and type checking.
     os.path: Submodule of 'os' for manipulating file system paths.
     datetime: Provides classes for manipulating dates and times.
-    discord.ext.commands: Extension of the discord.py library, simplifies command parsing and handling.
+    discord.ext.commands: Extension of the discord.py library, simplifies command parsing and 
+        handling.
     graph: A custom module for generating live leaderboard graphs
     scoring: A custom module for calculating scores.
 
@@ -32,24 +32,25 @@ Example:
     ```
 
 Note:
-    This module requires the discord.ext.commands framework for proper integration into a Discord bot.
+    This module requires the discord.ext.commands framework for proper integration into a 
+    Discord bot.
 """
 
 import os
 import csv
 import asyncio
 import sqlite3
-import discord
-from relayer import Relayer
-from db_init import create_db
 from typing import Optional
 from os.path import join, dirname, abspath
 from datetime import datetime
+import discord
+from relayer import Relayer
+from db_init import create_db
 from discord.ext import commands
 from graph import graph
 from scoring import scoring
 
-nocomp = "No active competitions. Run `!set_comp` to instantiate a competition."
+NOCOMP = "No active competitions. Run `!set_comp` to instantiate a competition."
 
 class Comp:
     """
@@ -198,7 +199,7 @@ class Competition(commands.Cog):
         """
         # check if comp is set
         if not hasattr(self, 'comp') or self.comp is None:
-            await ctx.send(nocomp) 
+            await ctx.send(NOCOMP) 
             return
         if self.comp.active:
             await ctx.send("Competition already active.")
@@ -244,7 +245,7 @@ class Competition(commands.Cog):
         """
         # check if comp is set
         if not hasattr(self, 'comp') or self.comp is None:
-            await ctx.send(nocomp) 
+            await ctx.send(NOCOMP) 
             return
         if not self.comp.active:
             await ctx.send("Competition has not been started.")
@@ -525,7 +526,7 @@ class Competition(commands.Cog):
             Only available when competition is set.
         """
         if not hasattr(self, 'comp') or self.comp is None:
-            await ctx.send(nocomp)
+            await ctx.send(NOCOMP)
             return
         
         self.comp.mod_channel = mod_c
@@ -548,7 +549,7 @@ class Competition(commands.Cog):
             Only available when competition is set.
         """
         if not hasattr(self, 'comp') or self.comp is None:
-            await ctx.send(nocomp)
+            await ctx.send(NOCOMP)
             return
         
         self.comp.mod_channel = res_c
@@ -576,7 +577,7 @@ class Competition(commands.Cog):
             Only available when competition is set.
         """
         if not hasattr(self, 'comp') or self.comp is None:
-            await ctx.send(nocomp)
+            await ctx.send(NOCOMP)
             return
         
         if len(ctx.message.attachments) == 1:
@@ -629,7 +630,7 @@ class Competition(commands.Cog):
             Only available when competition is set.
         """
         if not hasattr(self, 'comp') or self.comp is None:
-            await ctx.send(nocomp) 
+            await ctx.send(NOCOMP) 
             return
         
         if len(ctx.message.attachments) == 1:
@@ -676,7 +677,7 @@ class Competition(commands.Cog):
             Only available when competition is set and has been stopped.
         """
         if not hasattr(self, 'comp') or self.comp is None:
-            await ctx.send(nocomp)
+            await ctx.send(NOCOMP)
             return
         if self.comp.active:
             await ctx.send("Competition is still active. Use `!stop_comp` to stop competition.")
@@ -717,7 +718,7 @@ class Competition(commands.Cog):
             Only available when competition is set.
         """
         if not hasattr(self, 'comp') or self.comp is None:
-            await ctx.send(nocomp) 
+            await ctx.send(NOCOMP) 
             return
         
         self.comp.competitor[ctx.channel.id] = int(tid)
@@ -740,7 +741,7 @@ class Competition(commands.Cog):
             Only available when competition is set and current channel is a competitor channel.
         """
         if not hasattr(self, 'comp') or self.comp is None:
-            await ctx.send(nocomp)
+            await ctx.send(NOCOMP)
             return
         
         if not ctx.channel in self.comp.competitor:

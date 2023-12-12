@@ -5,7 +5,7 @@ Environment Variables:
     DISCORD_TOKEN (str): Used to authenticate the bot with Discord's API.
 
 Dependencies:
-    discord.py: Uused to interact with Discord's API.
+    discord.py: Used to interact with Discord's API.
     python-dotenv: For loading environment variables from the .env file.
 
 Extensions:
